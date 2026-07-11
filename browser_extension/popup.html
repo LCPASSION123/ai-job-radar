@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>AI Job Radar Capture</title>
+    <style>
+      body{width:320px;margin:0;padding:18px;font:14px/1.5 system-ui,"Microsoft YaHei",sans-serif;color:#13243a}
+      h1{font-size:18px;margin:0 0 8px} p{color:#52647b} label{display:block;font-weight:700;margin:12px 0 5px}
+      input{width:100%;box-sizing:border-box;padding:8px;border:1px solid #c9d5e5;border-radius:7px} button{width:100%;margin-top:15px;padding:10px;border:0;border-radius:8px;background:#1269bd;color:#fff;font-weight:700;cursor:pointer}.status{min-height:22px;font-size:12px;margin-top:10px}
+    </style>
+  </head>
+  <body>
+    <h1>AI Job Radar</h1>
+    <p>仅采集当前已打开、可见的任务页文本，发送到本机分析。不会登录、翻页、点击平台按钮或发送任何内容。</p>
+    <label for="api">本机 API</label>
+    <input id="api" value="http://127.0.0.1:8000" />
+    <button id="capture">采集当前页并分析</button>
+    <div class="status" id="status" role="status"></div>
+    <script src="popup.js"></script>
+  </body>
+</html>

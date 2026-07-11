@@ -1,0 +1,9 @@
+{
+  "manifest_version": 3,
+  "name": "AI Job Radar — Read-only Capture",
+  "version": "1.0.0",
+  "description": "Captures the currently visible job page for local AI Job Radar analysis. It never clicks, submits, messages, or accesses credentials.",
+  "action": { "default_popup": "popup.html", "default_title": "Capture visible job" },
+  "permissions": ["activeTab", "scripting", "storage"],
+  "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"]
+}

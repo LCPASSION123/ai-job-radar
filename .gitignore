@@ -1,0 +1,26 @@
+# Local configuration
+.env
+.codex/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Runtime data and logs
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+.logs/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/*.tsbuildinfo
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

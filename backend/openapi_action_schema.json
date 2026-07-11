@@ -1,0 +1,72 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AI Job Radar Action",
+    "version": "1.0.0",
+    "description": "Compliant local job intake and analysis API. It never logs in, bypasses platform controls, submits bids, sends messages, signs contracts, or pays. All drafts require human review."
+  },
+  "servers": [{"url": "https://YOUR_DOMAIN.example.com"}],
+  "paths": {
+    "/jobs/search": {
+      "post": {
+        "operationId": "searchJobs",
+        "summary": "Search and score locally imported jobs",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SearchRequest"}}}},
+        "responses": {"200": {"description": "Ranked opportunities", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/ScoredJob"}}}}}}
+      }
+    },
+    "/jobs/recommendations": {
+      "post": {
+        "operationId": "recommendAiDeliverableJobs",
+        "summary": "Find small, low-risk, high-AI-autonomy local job candidates",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/TargetProfile"}}}},
+        "responses": {"200": {"description": "Human-reviewed candidates only", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/ScoredJob"}}}}}}
+      }
+    },
+    "/platforms": {
+      "get": {
+        "operationId": "listPlatforms",
+        "summary": "List the local vetted marketplace directory; no account access occurs",
+        "responses": {"200": {"description": "Platforms", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/PlatformProfile"}}}}}}
+      }
+    },
+    "/jobs/{job_id}": {
+      "get": {
+        "operationId": "getJob",
+        "summary": "Get a scored job",
+        "parameters": [{"$ref": "#/components/parameters/JobId"}],
+        "responses": {"200": {"description": "Job", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ScoredJob"}}}}}
+      }
+    },
+    "/jobs/{job_id}/proposal": {
+      "post": {
+        "operationId": "generateProposalDraft",
+        "summary": "Generate a human-reviewed proposal draft only",
+        "parameters": [{"$ref": "#/components/parameters/JobId"}],
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "properties": {"language": {"type": "string", "enum": ["auto", "en", "zh"]}}}}}},
+        "responses": {"200": {"description": "Draft, not submitted", "content": {"application/json": {"schema": {"type": "object"}}}}}
+      }
+    },
+    "/connectors": {
+      "get": {"operationId": "listConnectors", "summary": "List compliant connector modes", "responses": {"200": {"description": "Connectors", "content": {"application/json": {"schema": {"type": "array", "items": {"type": "object"}}}}}}}
+    },
+    "/connectors/health": {
+      "get": {"operationId": "getConnectorHealth", "summary": "Check connector configuration without exposing secrets", "responses": {"200": {"description": "Health", "content": {"application/json": {"schema": {"type": "array", "items": {"type": "object"}}}}}}}
+    },
+    "/exports/{format_name}": {
+      "get": {"operationId": "exportReport", "summary": "Export CSV, JSON, or Markdown daily report", "parameters": [{"name": "format_name", "in": "path", "required": true, "schema": {"type": "string", "enum": ["csv", "json", "markdown"]}}], "responses": {"200": {"description": "Export file"}}}
+    },
+    "/audit": {
+      "get": {"operationId": "listAuditEvents", "summary": "Read audit events", "responses": {"200": {"description": "Audit events", "content": {"application/json": {"schema": {"type": "array", "items": {"type": "object"}}}}}}}
+    }
+  },
+  "components": {
+    "parameters": {"JobId": {"name": "job_id", "in": "path", "required": true, "schema": {"type": "string"}}},
+    "schemas": {
+      "SearchRequest": {"type": "object", "properties": {"platforms": {"type": "array", "items": {"type": "string"}}, "query": {"type": "string"}, "categories": {"type": "array", "items": {"type": "string"}}, "max_results": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}}},
+      "TargetProfile": {"type": "object", "properties": {"maxMinutes": {"type": "integer", "default": 120}, "minimumBudgetCny": {"type": "number", "default": 50}, "minimumAiAutonomy": {"type": "number", "default": 0.85}, "maximumManualWorkLevel": {"type": "integer", "default": 2}, "maximumRiskLevel": {"type": "integer", "default": 2}}},
+      "PlatformProfile": {"type": "object", "required": ["name", "region", "url", "workModel", "intakeMode", "bestFor", "suitability", "note"], "properties": {"name": {"type": "string"}, "region": {"type": "string"}, "url": {"type": "string", "format": "uri"}, "workModel": {"type": "string"}, "intakeMode": {"type": "string"}, "bestFor": {"type": "array", "items": {"type": "string"}}, "suitability": {"type": "string"}, "note": {"type": "string"}}},
+      "ScoredJob": {"type": "object", "required": ["id", "platform", "title", "description", "score", "verdict", "reason"], "properties": {"id": {"type": "string"}, "platform": {"type": "string"}, "title": {"type": "string"}, "description": {"type": "string"}, "score": {"type": "integer", "minimum": 0, "maximum": 100}, "verdict": {"type": "string", "enum": ["recommend", "caution", "reject"]}, "reason": {"type": "string"}, "proposalDraft": {"type": "string", "description": "Draft only; user must manually review and submit."}, "deliveryPlan": {"type": "array", "items": {"type": "string"}}}}
+    }
+  }
+}
