@@ -10,11 +10,18 @@ type Job = { id: string; workspace: Workspace; platform: string; title: string; 
 type Connector = { platform: string; workspace: Workspace; mode: string; ok: boolean; message: string; supportsCsv: boolean; supportsPaste: boolean; supportsDomCapture: boolean };
 type Platform = { workspace: Workspace; name: string; region: string; url: string; workModel: string; intakeMode: string; bestFor: string[]; suitability: string; note: string; agentAccess: string };
 type TimeRange = "120" | "720" | "1440" | "10080" | "unlimited";
+type PostedRange = "24" | "72" | "168" | "720" | "all";
 const TIME_RANGES: { value: TimeRange; label: string; minutes: number }[] = [
   { value: "120", label: "2 小时", minutes: 120 }, { value: "720", label: "12 小时", minutes: 720 },
   { value: "1440", label: "24 小时", minutes: 1440 }, { value: "10080", label: "一周", minutes: 10080 },
   { value: "unlimited", label: "不限", minutes: 525600 },
 ];
+const POSTED_RANGES: { value: PostedRange; label: string; hours?: number }[] = [
+  { value: "24", label: "24 小时内", hours: 24 }, { value: "72", label: "3 天内", hours: 72 },
+  { value: "168", label: "7 天内", hours: 168 }, { value: "720", label: "30 天内", hours: 720 },
+  { value: "all", label: "不限" },
+];
+const PAGE_SIZE = 8;
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API}${path}`, init);
@@ -33,7 +40,11 @@ function App() {
   const [query, setQuery] = useState("");
   const [platform, setPlatform] = useState("");
   const [timeRange, setTimeRange] = useState<TimeRange>("720");
+  const [postedRange, setPostedRange] = useState<PostedRange>("all");
+  const [category, setCategory] = useState("");
+  const [tagText, setTagText] = useState("");
   const [strictMode, setStrictMode] = useState(false);
+  const [page, setPage] = useState(1);
   const [status, setStatus] = useState("正在加载本地雷达数据…");
   const [paste, setPaste] = useState("");
 
@@ -41,10 +52,10 @@ function App() {
     try {
       const params = new URLSearchParams({ workspace: nextWorkspace });
       const [result, sourceConnectors, sourcePlatforms] = await Promise.all([
-        request<Job[]>("/jobs/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workspace: nextWorkspace, query, platforms: platform ? [platform] : [], max_results: 200 }) }),
+        request<Job[]>("/jobs/search", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workspace: nextWorkspace, query, platforms: platform ? [platform] : [], categories: category ? [category] : [], tags: tagText.split(",").map(tag => tag.trim()).filter(Boolean), postedWithinHours: POSTED_RANGES.find(item => item.value === postedRange)?.hours, max_results: 200 }) }),
         request<Connector[]>(`/connectors?${params}`), request<Platform[]>(`/platforms?${params}`),
       ]);
-      setJobs(result); setSelected(result[0] || null); setConnectors(sourceConnectors); setPlatforms(sourcePlatforms);
+      setJobs(result); setSelected(result[0] || null); setPage(1); setConnectors(sourceConnectors); setPlatforms(sourcePlatforms);
       setStatus(`已评分 ${result.length} 条${nextWorkspace === "embedded" ? "嵌入式" : "通用"}任务。系统只分析本地导入数据，不代表你登录、报价或接单。`);
     } catch (error) { setStatus(error instanceof Error ? error.message : "无法连接后端"); }
   };
@@ -52,18 +63,19 @@ function App() {
   useEffect(() => { void load(); }, [workspace]);
 
   const switchWorkspace = (next: Workspace) => {
-    setWorkspace(next); setQuery(""); setPlatform(""); setTimeRange("720"); setStrictMode(false); setSelected(null);
+    setWorkspace(next); setQuery(""); setPlatform(""); setCategory(""); setTagText(""); setTimeRange("720"); setPostedRange("all"); setStrictMode(false); setPage(1); setSelected(null);
   };
 
   const loadTarget = async () => {
     try {
       const endpoint = workspace === "embedded" ? "/embedded/jobs/recommendations" : "/jobs/recommendations";
       const maxMinutes = TIME_RANGES.find(item => item.value === timeRange)!.minutes;
+      const filters = { categories: category ? [category] : [], tags: tagText.split(",").map(tag => tag.trim()).filter(Boolean), postedWithinHours: POSTED_RANGES.find(item => item.value === postedRange)?.hours };
       const profile = workspace === "embedded"
-        ? { workspace, maxMinutes, minimumBudgetCny: strictMode ? 50 : 30, minimumAiAutonomy: strictMode ? 0.85 : 0.65, maximumManualWorkLevel: strictMode ? 2 : 3, maximumRiskLevel: strictMode ? 2 : 3, minimumAgentReadiness: strictMode ? 80 : 60, allowSimulationOnly: true }
-        : { workspace, maxMinutes, minimumBudgetCny: strictMode ? 50 : 30, minimumAiAutonomy: strictMode ? 0.85 : 0.7, maximumManualWorkLevel: strictMode ? 2 : 3, maximumRiskLevel: strictMode ? 2 : 3 };
+        ? { workspace, maxMinutes, minimumBudgetCny: strictMode ? 50 : 30, minimumAiAutonomy: strictMode ? 0.85 : 0.65, maximumManualWorkLevel: strictMode ? 2 : 3, maximumRiskLevel: strictMode ? 2 : 3, minimumAgentReadiness: strictMode ? 80 : 60, allowSimulationOnly: true, ...filters }
+        : { workspace, maxMinutes, minimumBudgetCny: strictMode ? 50 : 30, minimumAiAutonomy: strictMode ? 0.85 : 0.7, maximumManualWorkLevel: strictMode ? 2 : 3, maximumRiskLevel: strictMode ? 2 : 3, ...filters };
       const result = await request<Job[]>(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(profile) });
-      setJobs(result); setSelected(result[0] || null);
+      setJobs(result); setSelected(result[0] || null); setPage(1);
       const rangeLabel = TIME_RANGES.find(item => item.value === timeRange)!.label;
       setStatus(workspace === "embedded" ? `嵌入式桌面交付候选：${result.length} 条（${rangeLabel}、${strictMode ? "严格" : "宽松"}）。已排除真机、现场、量产和安全关键工作。` : `候选队列：${result.length} 条（${rangeLabel}、${strictMode ? "严格" : "宽松"}条件）。`);
     } catch (error) { setStatus(error instanceof Error ? error.message : "无法生成候选队列"); }
@@ -81,6 +93,10 @@ function App() {
   };
   const maxVisibleMinutes = TIME_RANGES.find(item => item.value === timeRange)!.minutes;
   const visible = useMemo(() => jobs.filter(job => job.estimatedMinutes <= maxVisibleMinutes), [jobs, maxVisibleMinutes]);
+  const categoryOptions = useMemo(() => [...new Set(jobs.map(job => job.category))].sort(), [jobs]);
+  const pageCount = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pagedJobs = visible.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
   const counts = { recommend: jobs.filter(j => j.verdict === "recommend").length, caution: jobs.filter(j => j.verdict === "caution").length, reject: jobs.filter(j => j.verdict === "reject").length };
   const sourceUrl = (job: Job) => job.url || platforms.find(item => item.name === job.platform)?.url;
 
@@ -92,9 +108,9 @@ function App() {
     <nav className="workspace-tabs" aria-label="工作区"><button className={workspace === "general" ? "active" : ""} onClick={() => switchWorkspace("general")}>AI 接单雷达</button><button className={workspace === "embedded" ? "active" : ""} onClick={() => switchWorkspace("embedded")}>嵌入式接单雷达</button></nav>
     <p className="status">{status}</p>
     <section className="metrics"><Metric label="已扫描" value={jobs.length}/><Metric label="建议接" value={counts.recommend} tone="good"/><Metric label="谨慎" value={counts.caution} tone="warn"/><Metric label="不接" value={counts.reject} tone="bad"/></section>
-    <section className="toolbar"><input aria-label="关键词" value={query} onChange={e => setQuery(e.target.value)} placeholder={workspace === "embedded" ? "关键词，如 ESP32、STM32、Zephyr、RTOS、协议、仿真" : "关键词，如 PPT、脚本、API docs"}/><select value={platform} onChange={e => setPlatform(e.target.value)}><option value="">全部平台</option>{platforms.map(item => <option key={item.name}>{item.name}</option>)}</select><label>交付时间 <select value={timeRange} onChange={e => setTimeRange(e.target.value as TimeRange)}>{TIME_RANGES.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label><input type="checkbox" checked={strictMode} onChange={e => setStrictMode(e.target.checked)}/> 严格条件（默认宽松）</label><button className="secondary" onClick={() => void load()}>搜索</button><button onClick={() => void loadTarget()}>{workspace === "embedded" ? "生成桌面交付候选" : "生成候选队列"}</button><label className="upload">导入 CSV/JSON<input type="file" accept=".csv,.json" onChange={e => e.target.files?.[0] && void importFile(e.target.files[0])}/></label><a className="secondary export" href={`${API}/exports/markdown`}>导出日报</a></section>
+    <section className="toolbar"><input aria-label="关键词" value={query} onChange={e => setQuery(e.target.value)} placeholder={workspace === "embedded" ? "关键词，如 ESP32、STM32、Zephyr、RTOS、协议、仿真" : "关键词，如 PPT、脚本、API docs"}/><select value={platform} onChange={e => setPlatform(e.target.value)}><option value="">全部平台</option>{platforms.map(item => <option key={item.name}>{item.name}</option>)}</select><label>单子类型 <select value={category} onChange={e => setCategory(e.target.value)}><option value="">全部</option>{categoryOptions.map(item => <option key={item}>{item}</option>)}</select></label><label>发布时间 <select value={postedRange} onChange={e => setPostedRange(e.target.value as PostedRange)}>{POSTED_RANGES.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label>交付时间 <select value={timeRange} onChange={e => { setTimeRange(e.target.value as TimeRange); setPage(1); }}>{TIME_RANGES.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><input className="tag-filter" aria-label="自定义标签" value={tagText} onChange={e => setTagText(e.target.value)} placeholder="自定义标签，逗号分隔"/><label><input type="checkbox" checked={strictMode} onChange={e => setStrictMode(e.target.checked)}/> 严格条件（默认宽松）</label><button className="secondary" onClick={() => void load()}>搜索</button><button onClick={() => void loadTarget()}>{workspace === "embedded" ? "生成桌面交付候选" : "生成候选队列"}</button><label className="upload">导入 CSV/JSON<input type="file" accept=".csv,.json" onChange={e => e.target.files?.[0] && void importFile(e.target.files[0])}/></label><a className="secondary export" href={`${API}/exports/markdown`}>导出日报</a></section>
     {workspace === "embedded" && <section className="guardrail"><b>嵌入式交付边界：</b>只推荐已提供源码/工具链/测试条件，且能用 host test、仿真或 mock 验证的工作。真机测试、焊接、现场调试、量产烧录、生产部署、安全认证均不会被推荐。</section>}
-    <section className="content"><div className="panel"><h2>推荐队列 <small>{visible.length} 条</small></h2>{visible.map(job => { const url = sourceUrl(job); return <article className={`job ${selected?.id === job.id ? "active" : ""}`} key={job.id} onClick={() => setSelected(job)}><span><b>{job.title}</b><small>{job.platform} · {job.category} · {job.budget || "预算未注明"} · {job.estimatedMinutes} 分钟</small><em>{job.reason}</em></span><div className="job-actions"><strong className={job.verdict}>{job.score}</strong>{url && <a href={url} target="_blank" rel="noreferrer" onClick={event => event.stopPropagation()}>{job.url ? "打开原任务 ↗" : "打开来源平台 ↗"}</a>}</div></article>})}{!visible.length && <p>还没有符合条件的任务。请导入 CSV/JSON、粘贴有权查看的任务详情，或通过只读扩展采集当前可见页面。</p>}</div>
+    <section className="content"><div className="panel"><h2>推荐队列 <small>共 {visible.length} 条 · 第 {currentPage}/{pageCount} 页</small></h2>{pagedJobs.map(job => { const url = sourceUrl(job); return <article className={`job ${selected?.id === job.id ? "active" : ""}`} key={job.id} onClick={() => setSelected(job)}><span><b>{job.title}</b><small>{job.platform} · {job.category} · {job.budget || "预算未注明"} · {job.estimatedMinutes} 分钟</small><em>{job.reason}</em></span><div className="job-actions"><strong className={job.verdict}>{job.score}</strong>{url && <a href={url} target="_blank" rel="noreferrer" onClick={event => event.stopPropagation()}>{job.url ? "打开原任务 ↗" : "打开来源平台 ↗"}</a>}</div></article>})}{visible.length > 0 && <nav className="pagination" aria-label="推荐列表分页"><button className="secondary" disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)}>上一页</button>{Array.from({ length: pageCount }, (_, index) => index + 1).slice(Math.max(0, currentPage - 3), currentPage + 2).map(item => <button key={item} className={item === currentPage ? "active" : "secondary"} onClick={() => setPage(item)}>{item}</button>)}<button className="secondary" disabled={currentPage === pageCount} onClick={() => setPage(currentPage + 1)}>下一页</button></nav>}{!visible.length && <p>还没有符合条件的任务。请调整筛选条件、导入 CSV/JSON、粘贴有权查看的任务详情，或通过只读扩展采集当前可见页面。</p>}</div>
       <aside className="panel details">{selected ? <><p className={`tag ${selected.verdict}`}>{selected.verdict === "recommend" ? "建议接" : selected.verdict === "caution" ? "谨慎" : "不接"} · {selected.score}/100</p><h2>{selected.title}</h2>{sourceUrl(selected) && <a className="open-source" href={sourceUrl(selected)} target="_blank" rel="noreferrer">{selected.url ? "在平台打开原任务 ↗" : "在平台打开来源页 ↗"}</a>}<p>{selected.description}</p>{selected.embeddedAssessment && <EmbeddedPanel assessment={selected.embeddedAssessment}/>}<h3>评分依据</h3><div className="breakdown">{Object.entries(selected.scoreBreakdown).filter(([, value]) => value !== null).map(([key,value]) => <span key={key}>{key}<b>{value}</b></span>)}</div><h3>交付物</h3><ul>{selected.deliverables.map(item => <li key={item}>{item}</li>)}</ul><h3>交付流程</h3><ol>{selected.deliveryPlan.map(item => <li key={item}>{item}</li>)}</ol><h3>投标草稿（必须人工审核并手动提交）</h3><pre>{selected.proposalDraft}</pre></> : <p>选择一个任务查看详情。</p>}</aside></section>
     <section className="panel"><h2>手动粘贴任务</h2><p className="muted">{workspace === "embedded" ? "推荐粘贴目标平台、芯片/SDK、源码与工具链、测试条件、是否需要真机/现场/烧录等信息。" : "粘贴标题、预算、要求和交付物；不要粘贴私人联系方式或敏感资料。"}</p><textarea className="paste" value={paste} onChange={e => setPaste(e.target.value)} placeholder="从你有权查看的任务页复制内容…"/><button onClick={() => void importPaste()}>导入并评分</button></section>
     <section className="panel"><h2>{workspace === "embedded" ? "嵌入式平台与线索目录" : "平台目录"}</h2><p>{workspace === "embedded" ? "“优先”表示适合作为嵌入式机会来源，不代表自动接入或保证成交；“线索”是工程社区/机会板，需要你自行核验对方与条款。" : "没有任何平台能保证稳定收入。优先选择范围小、资料齐全、修订次数有限且预算覆盖时间成本的任务。"}</p><div className="platforms">{platforms.map(item => <article key={item.name}><div><b>{item.name}</b><small>{item.region} · {item.suitability}</small></div><p>{item.workModel}</p><p className="muted">适合：{item.bestFor.join("、")}</p><p className="muted">{item.note}</p><a href={item.url} target="_blank" rel="noreferrer">打开平台（自行登录）</a></article>)}</div></section>

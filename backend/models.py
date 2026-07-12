@@ -80,6 +80,8 @@ class SearchRequest(BaseModel):
     platforms: list[str] = Field(default_factory=list)
     query: str = ""
     categories: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    postedWithinHours: int | None = Field(default=None, ge=1, le=8760)
     max_results: int = Field(default=50, ge=1, le=200)
 
 
@@ -91,6 +93,9 @@ class TargetProfile(BaseModel):
     minimumAiAutonomy: float = Field(default=0.85, ge=0, le=1)
     maximumManualWorkLevel: int = Field(default=2, ge=1, le=5)
     maximumRiskLevel: int = Field(default=2, ge=1, le=5)
+    categories: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+    postedWithinHours: int | None = Field(default=None, ge=1, le=8760)
 
 
 class EmbeddedTargetProfile(TargetProfile):

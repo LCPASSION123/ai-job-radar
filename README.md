@@ -52,6 +52,8 @@ npm.cmd run dev
 
 现在页面还提供 `2 小时 / 12 小时 / 24 小时 / 一周 / 不限` 五档交付时间。默认是**宽松条件**（预算 ≥¥30、较高 AI 自主度、人工/风险等级 ≤3），以减少漏掉的小单；勾选“严格条件”即可回到原先的 `¥50 / 2 小时 / AI 自主度 0.85 / 人工与风险 ≤2` 筛选。嵌入式工作区无论选择哪种条件，仍会排除真机、现场、量产和安全关键工作。
 
+筛选栏还支持五档发布时间（24 小时、3 天、7 天、30 天、不限）、单子类型和自定义标签。多个标签用英文逗号分隔，任务须同时命中这些标签；匹配结果每页显示 8 条，可通过上一页/下一页翻阅全部符合项。通用与嵌入式工作区均支持这些筛选。
+
 CSV 至少需要 `platform,title,description`。可选：`category,budget,budget_amount,currency,deliverables,constraints,estimated_minutes,ai_autonomy,manual_work_level,risk_level,client_reputation,deliverable_clarity,url`。列表可用 `|`、`;`、换行或 JSON 数组分隔。
 
 ```csv

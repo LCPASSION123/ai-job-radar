@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -68,10 +69,35 @@ app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("RADAR_CORS_ORIGIN",
 
 def _scored(request: SearchRequest) -> list[ScoredJob]:
     jobs = database.list_jobs(request.query, request.platforms, request.categories, request.max_results, request.workspace)
+    jobs = [job for job in jobs if _matches_extra_filters(job, request)]
     result = sorted((score_job(job) for job in jobs), key=lambda item: item.score, reverse=True)
     database.audit("search", {"workspace": request.workspace.value, "query": request.query, "platforms": request.platforms, "categories": request.categories, "results": len(result)})
     database.audit("score", {"workspace": request.workspace.value, "jobs": len(result), "engine": "deterministic_v2"})
     return result
+
+
+def _matches_extra_filters(job, request: SearchRequest) -> bool:
+    """Apply timestamp and free-form tag filters after normalized records load."""
+    if request.postedWithinHours is not None:
+        if not job.posted:
+            return False
+        try:
+            posted = datetime.fromisoformat(job.posted.replace("Z", "+00:00"))
+            if posted.tzinfo is None:
+                posted = posted.replace(tzinfo=timezone.utc)
+        except ValueError:
+            return False
+        if posted < datetime.now(timezone.utc) - timedelta(hours=request.postedWithinHours):
+            return False
+    tags = [tag.lower().strip() for tag in request.tags if tag.strip()]
+    if tags:
+        raw_tags = job.raw.get("tags", []) if isinstance(job.raw, dict) else []
+        if not isinstance(raw_tags, list):
+            raw_tags = [raw_tags]
+        searchable = " ".join([job.platform, job.title, job.category, job.description, *job.requiredSkills, *job.constraints, *map(str, raw_tags)]).lower()
+        if not all(tag in searchable for tag in tags):
+            return False
+    return True
 
 
 @app.get("/health")
@@ -114,7 +140,7 @@ async def recommendations(profile: TargetProfile) -> list[ScoredJob]:
     """Strict queue for small, low-risk, high-autonomy work candidates."""
     from backend.scoring import fits_target_profile
 
-    candidates = _scored(SearchRequest(max_results=200, workspace=Workspace.general))
+    candidates = _scored(SearchRequest(max_results=200, workspace=Workspace.general, categories=profile.categories, tags=profile.tags, postedWithinHours=profile.postedWithinHours))
     result = [job for job in candidates if fits_target_profile(job, profile)]
     database.audit("target_recommendations", {"profile": profile.model_dump(), "results": len(result)})
     return result
@@ -125,7 +151,7 @@ async def embedded_recommendations(profile: EmbeddedTargetProfile) -> list[Score
     """Strict desk-only embedded queue; never selects work needing real hardware."""
     from backend.scoring import fits_embedded_target_profile
 
-    candidates = _scored(SearchRequest(max_results=200, workspace=Workspace.embedded))
+    candidates = _scored(SearchRequest(max_results=200, workspace=Workspace.embedded, categories=profile.categories, tags=profile.tags, postedWithinHours=profile.postedWithinHours))
     result = [job for job in candidates if fits_embedded_target_profile(job, profile)]
     database.audit("embedded_target_recommendations", {"profile": profile.model_dump(), "results": len(result)})
     return result
