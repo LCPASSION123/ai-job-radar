@@ -12,10 +12,16 @@ class Verdict(str, Enum):
     reject = "reject"
 
 
+class Workspace(str, Enum):
+    general = "general"
+    embedded = "embedded"
+
+
 class Job(BaseModel):
     """Normalized, account-free job record accepted from every connector."""
 
     id: str
+    workspace: Workspace = Workspace.general
     platform: str
     title: str
     category: str = "other"
@@ -35,6 +41,7 @@ class Job(BaseModel):
     riskLevel: int = Field(default=3, ge=1, le=5)
     estimatedMinutes: int = Field(default=120, ge=1)
     aiAutonomy: float = Field(default=0.5, ge=0, le=1)
+    embedded: dict[str, Any] = Field(default_factory=dict)
     source: str = "manual"
     raw: dict[str, Any] = Field(default_factory=dict)
 
@@ -55,6 +62,7 @@ class ScoreBreakdown(BaseModel):
     budgetFit: int
     clientReputation: int
     deliverableClarity: int
+    embeddedReadiness: int | None = None
 
 
 class ScoredJob(Job):
@@ -64,9 +72,11 @@ class ScoredJob(Job):
     scoreBreakdown: ScoreBreakdown
     proposalDraft: str
     deliveryPlan: list[str]
+    embeddedAssessment: "EmbeddedAssessment | None" = None
 
 
 class SearchRequest(BaseModel):
+    workspace: Workspace = Workspace.general
     platforms: list[str] = Field(default_factory=list)
     query: str = ""
     categories: list[str] = Field(default_factory=list)
@@ -83,7 +93,34 @@ class TargetProfile(BaseModel):
     maximumRiskLevel: int = Field(default=2, ge=1, le=5)
 
 
+class EmbeddedTargetProfile(TargetProfile):
+    """Strict profile for work an AI agent can prepare without touching real hardware."""
+
+    workspace: Workspace = Workspace.embedded
+    minimumAgentReadiness: int = Field(default=80, ge=0, le=100)
+    allowSimulationOnly: bool = True
+
+
+class EmbeddedAssessment(BaseModel):
+    """Facts that separate desk-only firmware work from real-world hardware work."""
+
+    target: str = "unknown"
+    scope: str = "unknown"
+    sourceFilesProvided: bool = False
+    toolchainKnown: bool = False
+    testFixturesProvided: bool = False
+    hardwareAccessRequired: bool = False
+    physicalDeliveryRequired: bool = False
+    onDeviceTestingRequired: bool = False
+    productionFlashOrDeploy: bool = False
+    safetyCritical: bool = False
+    agentReadiness: int = Field(default=0, ge=0, le=100)
+    blockers: list[str] = Field(default_factory=list)
+    recommendedArtifacts: list[str] = Field(default_factory=list)
+
+
 class PlatformProfile(BaseModel):
+    workspace: Workspace = Workspace.general
     name: str
     region: str
     url: str
@@ -93,6 +130,7 @@ class PlatformProfile(BaseModel):
     suitability: str
     note: str
     requiresAccount: bool = True
+    agentAccess: str = "只读导入；平台操作需人工确认"
 
 
 class ConnectorHealth(BaseModel):
@@ -100,6 +138,7 @@ class ConnectorHealth(BaseModel):
     mode: str
     ok: bool
     message: str
+    workspace: Workspace = Workspace.general
 
 
 class ConnectorInfo(ConnectorHealth):
@@ -115,11 +154,13 @@ class ImportResult(BaseModel):
 
 
 class PasteRequest(BaseModel):
+    workspace: Workspace = Workspace.general
     platform: str
     text: str = Field(min_length=10, max_length=50_000)
 
 
 class DomCaptureRequest(BaseModel):
+    workspace: Workspace = Workspace.general
     platform: str
     jobs: list[dict[str, Any]] = Field(min_length=1, max_length=200)
 

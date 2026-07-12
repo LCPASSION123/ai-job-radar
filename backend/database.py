@@ -6,7 +6,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
-from backend.models import AuditEvent, Job
+from backend.models import AuditEvent, Job, Workspace
 
 
 class Database:
@@ -52,7 +52,7 @@ class Database:
                 [(job.id, job.platform, job.category, job.title, json.dumps(job.model_dump(), ensure_ascii=False)) for job in jobs],
             )
 
-    def list_jobs(self, query: str = "", platforms: list[str] | None = None, categories: list[str] | None = None, limit: int = 50) -> list[Job]:
+    def list_jobs(self, query: str = "", platforms: list[str] | None = None, categories: list[str] | None = None, limit: int = 50, workspace: Workspace | None = None) -> list[Job]:
         clauses, params = [], []
         if query:
             clauses.append("(lower(title) LIKE ? OR lower(payload) LIKE ?)")
@@ -66,7 +66,8 @@ class Database:
         sql = "SELECT payload FROM jobs" + (" WHERE " + " AND ".join(clauses) if clauses else "") + " ORDER BY updated_at DESC LIMIT ?"
         params.append(limit)
         with self.connection() as conn:
-            return [Job(**json.loads(row["payload"])) for row in conn.execute(sql, params)]
+            records = [Job(**json.loads(row["payload"])) for row in conn.execute(sql, params)]
+        return [job for job in records if workspace is None or job.workspace == workspace]
 
     def get_job(self, job_id: str) -> Job | None:
         with self.connection() as conn:

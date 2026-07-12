@@ -16,7 +16,7 @@ from backend.database import Database
 from backend.exporting import as_csv, as_json, as_markdown
 from backend.models import (
     AuditEvent, ConnectorHealth, ConnectorInfo, DomCaptureRequest, HighRiskConfirmation,
-    ImportResult, PasteRequest, PlatformProfile, ProposalRequest, ScoredJob, SearchRequest, TargetProfile,
+    EmbeddedTargetProfile, ImportResult, PasteRequest, PlatformProfile, ProposalRequest, ScoredJob, SearchRequest, TargetProfile, Workspace,
 )
 from backend.platform_catalog import platform_catalog
 from backend.scheduler import RadarScheduler
@@ -27,6 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env")
 DATABASE_PATH = Path(os.getenv("DATABASE_PATH", str(ROOT / "data" / "ai_job_radar.db")))
 SAMPLE_PATH = ROOT / "data" / "sample_jobs.json"
+EMBEDDED_SAMPLE_PATH = ROOT / "data" / "sample_embedded_jobs.json"
 database = Database(DATABASE_PATH)
 manual_connector = ManualImportConnector()
 connectors = build_connector_catalog(
@@ -37,13 +38,15 @@ scheduler = RadarScheduler(database)
 
 
 def _seed_demo_data() -> None:
-    if database.list_jobs(limit=1) or not SAMPLE_PATH.exists():
-        return
-    jobs = ManualImportConnector(SAMPLE_PATH).parse_json(SAMPLE_PATH.read_text(encoding="utf-8"))
-    for job in jobs:
-        job.source = "bundled_demo"
-    database.upsert_jobs(jobs)
-    database.audit("demo_seeded", {"jobs": len(jobs), "source": "bundled_demo"})
+    for path, workspace in ((SAMPLE_PATH, Workspace.general), (EMBEDDED_SAMPLE_PATH, Workspace.embedded)):
+        if database.list_jobs(limit=1, workspace=workspace) or not path.exists():
+            continue
+        jobs = ManualImportConnector(path).parse_json(path.read_text(encoding="utf-8"))
+        for job in jobs:
+            job.source = "bundled_embedded_demo" if workspace == Workspace.embedded else "bundled_demo"
+            job.workspace = workspace
+        database.upsert_jobs(jobs)
+        database.audit("demo_seeded", {"workspace": workspace.value, "jobs": len(jobs), "source": jobs[0].source})
 
 
 @asynccontextmanager
@@ -64,10 +67,10 @@ app.add_middleware(CORSMiddleware, allow_origins=[os.getenv("RADAR_CORS_ORIGIN",
 
 
 def _scored(request: SearchRequest) -> list[ScoredJob]:
-    jobs = database.list_jobs(request.query, request.platforms, request.categories, request.max_results)
+    jobs = database.list_jobs(request.query, request.platforms, request.categories, request.max_results, request.workspace)
     result = sorted((score_job(job) for job in jobs), key=lambda item: item.score, reverse=True)
-    database.audit("search", {"query": request.query, "platforms": request.platforms, "categories": request.categories, "results": len(result)})
-    database.audit("score", {"jobs": len(result), "engine": "deterministic_v1"})
+    database.audit("search", {"workspace": request.workspace.value, "query": request.query, "platforms": request.platforms, "categories": request.categories, "results": len(result)})
+    database.audit("score", {"workspace": request.workspace.value, "jobs": len(result), "engine": "deterministic_v2"})
     return result
 
 
@@ -82,18 +85,18 @@ async def llm_status() -> dict[str, str | bool]:
 
 
 @app.get("/connectors", response_model=list[ConnectorInfo])
-async def connector_list() -> list[ConnectorInfo]:
+async def connector_list(workspace: Workspace | None = None) -> list[ConnectorInfo]:
     items = []
     for connector in connectors:
         health = await connector.health_check()
         items.append(ConnectorInfo(**health.model_dump(), supportsCsv=connector.platform not in {"Upwork", "Freelancer", "百度众测", "京东众智"}, supportsPaste=True, supportsDomCapture=getattr(connector, "dom_capture", False)))
-    return items
+    return [item for item in items if workspace is None or item.workspace == workspace]
 
 
 @app.get("/platforms", response_model=list[PlatformProfile])
-async def platforms() -> list[PlatformProfile]:
+async def platforms(workspace: Workspace | None = None) -> list[PlatformProfile]:
     """Return the local curated directory; no platform network call is made."""
-    return platform_catalog()
+    return platform_catalog(workspace)
 
 
 @app.get("/connectors/health", response_model=list[ConnectorHealth])
@@ -111,9 +114,20 @@ async def recommendations(profile: TargetProfile) -> list[ScoredJob]:
     """Strict queue for small, low-risk, high-autonomy work candidates."""
     from backend.scoring import fits_target_profile
 
-    candidates = _scored(SearchRequest(max_results=200))
+    candidates = _scored(SearchRequest(max_results=200, workspace=profile.workspace))
     result = [job for job in candidates if fits_target_profile(job, profile)]
     database.audit("target_recommendations", {"profile": profile.model_dump(), "results": len(result)})
+    return result
+
+
+@app.post("/embedded/jobs/recommendations", response_model=list[ScoredJob])
+async def embedded_recommendations(profile: EmbeddedTargetProfile) -> list[ScoredJob]:
+    """Strict desk-only embedded queue; never selects work needing real hardware."""
+    from backend.scoring import fits_embedded_target_profile
+
+    candidates = _scored(SearchRequest(max_results=200, workspace=Workspace.embedded))
+    result = [job for job in candidates if fits_embedded_target_profile(job, profile)]
+    database.audit("embedded_target_recommendations", {"profile": profile.model_dump(), "results": len(result)})
     return result
 
 
@@ -155,16 +169,16 @@ async def import_csv(file: UploadFile = File(...)) -> ImportResult:
 
 @app.post("/jobs/paste", response_model=ImportResult)
 async def paste_job(request: PasteRequest) -> ImportResult:
-    job = manual_connector.parse_paste(request.platform, request.text)
-    database.upsert_jobs([job]); database.audit("manual_paste", {"platform": request.platform, "job_id": job.id})
+    job = manual_connector.parse_paste(request.platform, request.text, request.workspace)
+    database.upsert_jobs([job]); database.audit("manual_paste", {"workspace": request.workspace.value, "platform": request.platform, "job_id": job.id})
     return ImportResult(imported=1)
 
 
 @app.post("/jobs/dom-capture", response_model=ImportResult)
 async def dom_capture(request: DomCaptureRequest) -> ImportResult:
     """Read-only browser-extension handoff. The extension must capture only visible user-authorized DOM."""
-    jobs = [manual_connector.normalize_job({**raw, "platform": request.platform, "source": "browser_extension_dom_capture"}) for raw in request.jobs]
-    database.upsert_jobs(jobs); database.audit("dom_capture", {"platform": request.platform, "jobs": len(jobs)})
+    jobs = [manual_connector.normalize_job({**raw, "workspace": request.workspace.value, "platform": request.platform, "source": "browser_extension_dom_capture"}) for raw in request.jobs]
+    database.upsert_jobs(jobs); database.audit("dom_capture", {"workspace": request.workspace.value, "platform": request.platform, "jobs": len(jobs)})
     return ImportResult(imported=len(jobs))
 
 

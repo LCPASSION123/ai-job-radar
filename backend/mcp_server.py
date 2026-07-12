@@ -26,9 +26,11 @@ def _call(path: str, method: str = "GET", payload: dict | None = None) -> dict |
 
 
 @mcp.tool()
-def list_platforms() -> list[dict]:
-    """List vetted marketplaces and compliant intake routes. No account access occurs."""
-    return _call("/platforms")  # type: ignore[return-value]
+def list_platforms(workspace: str = "general") -> list[dict]:
+    """List the general or embedded marketplace directory and compliant intake routes. No account access occurs."""
+    if workspace not in {"general", "embedded"}:
+        raise ValueError("workspace must be 'general' or 'embedded'")
+    return _call(f"/platforms?workspace={workspace}")  # type: ignore[return-value]
 
 
 @mcp.tool()
@@ -41,6 +43,22 @@ def search_jobs(query: str = "", platforms: list[str] | None = None, max_results
 def recommend_ai_deliverable_jobs(max_minutes: int = 120, minimum_budget_cny: float = 50) -> list[dict]:
     """Find low-risk high-autonomy candidates; all delivery still needs human fact and quality review."""
     return _call("/jobs/recommendations", "POST", {"maxMinutes": max_minutes, "minimumBudgetCny": minimum_budget_cny, "minimumAiAutonomy": 0.85, "maximumManualWorkLevel": 2, "maximumRiskLevel": 2})  # type: ignore[return-value]
+
+
+@mcp.tool()
+def search_embedded_jobs(query: str = "", platforms: list[str] | None = None, max_results: int = 50) -> list[dict]:
+    """Search locally imported embedded opportunities only; it never accesses a platform account or hardware."""
+    return _call("/jobs/search", "POST", {"workspace": "embedded", "query": query, "platforms": platforms or [], "max_results": max_results})  # type: ignore[return-value]
+
+
+@mcp.tool()
+def recommend_embedded_desk_only_jobs(max_minutes: int = 120, minimum_budget_cny: float = 50) -> list[dict]:
+    """Find embedded work that is source-backed, toolchain-known, testable off-device, and has no physical/production/safety scope."""
+    return _call("/embedded/jobs/recommendations", "POST", {
+        "workspace": "embedded", "maxMinutes": max_minutes, "minimumBudgetCny": minimum_budget_cny,
+        "minimumAiAutonomy": 0.85, "maximumManualWorkLevel": 2, "maximumRiskLevel": 2,
+        "minimumAgentReadiness": 80, "allowSimulationOnly": True,
+    })  # type: ignore[return-value]
 
 
 @mcp.tool()

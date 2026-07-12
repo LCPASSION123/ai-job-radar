@@ -31,11 +31,13 @@ python -m uvicorn backend.main:app --port 8000
 
 | Tool | 用途 |
 |---|---|
-| `list_platforms` | 读取内置接单平台目录与合规导入路线 |
+| `list_platforms` | 读取通用或嵌入式平台目录与合规导入路线 |
 | `search_jobs` | 搜索和评分已导入的任务 |
 | `recommend_ai_deliverable_jobs` | 按时长/预算筛出高 AI 自主、低风险候选 |
+| `search_embedded_jobs` | 仅搜索本地导入的嵌入式任务，不访问平台账号或硬件 |
+| `recommend_embedded_desk_only_jobs` | 仅推荐源码/工具链/测试条件明确、可离线验证且无需硬件的嵌入式候选 |
 | `get_job` | 获取任务评分、草稿与交付计划 |
 | `generate_proposal` | 生成仅供人工审核的草稿 |
 | `recent_audit_events` | 读取本地审计日志 |
 
-没有登录、Cookie、验证码、投标、私信、合同、支付或交付工具。MCP 的输出只能作为人工判断和手动操作的辅助，不得用于绕过平台规则。
+没有登录、Cookie、验证码、投标、私信、合同、支付或交付工具。嵌入式 MCP 也不会烧录设备、连接真实硬件、进行生产部署或声明真机验证。MCP 的输出只能作为人工判断和手动操作的辅助，不得用于绕过平台规则。

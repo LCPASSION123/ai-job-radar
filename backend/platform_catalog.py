@@ -1,16 +1,70 @@
-"""Curated marketplace directory; informational and account-free by design."""
+"""Curated marketplace directory.
 
-from backend.models import PlatformProfile
+The catalog is intentionally informational.  A platform record never grants an
+agent an account, and every listing has an explicit import route instead of an
+unofficial scraper.
+"""
+
+from backend.models import PlatformProfile, Workspace
 
 
-def platform_catalog() -> list[PlatformProfile]:
+def _platform(
+    name: str, region: str, url: str, work_model: str, intake: str,
+    best_for: list[str], suitability: str, note: str, *, workspace: Workspace,
+    access: str = "Read-only import/capture; every external action needs a human confirmation.",
+) -> PlatformProfile:
+    return PlatformProfile(
+        workspace=workspace, name=name, region=region, url=url,
+        workModel=work_model, intakeMode=intake, bestFor=best_for,
+        suitability=suitability, note=note, agentAccess=access,
+    )
+
+
+def general_platform_catalog() -> list[PlatformProfile]:
+    """General AI-deliverable marketplaces retained as a separate workspace."""
+    import_only = "CSV export, manual paste, or user-clicked read-only DOM capture"
     return [
-        PlatformProfile(name="Upwork", region="全球", url="https://www.upwork.com/nx/search/jobs/", workModel="项目竞标 / 固定价或时薪", intakeMode="官方 API 授权后只读检索；否则浏览器只读采集或导入", bestFor=["技术文档", "脚本", "自动化小工具", "PPT"], suitability="优先", note="客户与预算信息相对完整；官方 API 需要账号和 OAuth 授权。"),
-        PlatformProfile(name="Freelancer", region="全球", url="https://www.freelancer.com/jobs/", workModel="项目竞标", intakeMode="官方 API 授权后只读检索；否则浏览器只读采集或导入", bestFor=["文案", "数据整理", "简单开发", "设计素材"], suitability="优先", note="适合固定范围的小项目；只保留草稿，不自动出价。"),
-        PlatformProfile(name="Fiverr", region="全球", url="https://www.fiverr.com/", workModel="上架标准化服务 / 项目邀约", intakeMode="CSV、粘贴或浏览器只读采集", bestFor=["标准化 PPT", "短视频脚本", "文案", "图片素材"], suitability="优先", note="更适合把可复用交付物包装成标准服务，而不是广泛抓取项目。"),
-        PlatformProfile(name="Contra", region="全球", url="https://contra.com/jobs", workModel="项目列表 / 作品集获客", intakeMode="CSV、粘贴或浏览器只读采集", bestFor=["创意交付", "内容", "设计", "独立顾问服务"], suitability="观察", note="适合有清晰作品集的独立服务；先验证所在地区的收款可用性。"),
-        PlatformProfile(name="PeoplePerHour", region="英国及全球", url="https://www.peopleperhour.com/", workModel="项目竞标 / 固定报价服务", intakeMode="CSV、粘贴或浏览器只读采集", bestFor=["文案", "设计", "网页小改", "营销素材"], suitability="观察", note="优先选择要求明确、资料齐全且修订次数有限的项目。"),
-        PlatformProfile(name="Workana", region="拉美及全球", url="https://www.workana.com/jobs", workModel="项目检索与报价", intakeMode="CSV、粘贴或浏览器只读采集", bestFor=["西语/葡语内容", "设计", "开发", "运营素材"], suitability="观察", note="有明确项目检索和报价流程；需自行确认语言与收款条件。"),
-        PlatformProfile(name="猪八戒", region="中国", url="https://www.zbj.com/", workModel="服务店铺 / 需求交易", intakeMode="CSV、粘贴或浏览器只读采集", bestFor=["文案", "设计", "PPT", "网站与小程序素材"], suitability="优先", note="国内服务交易平台；不得绕开站内沟通和交易规则。"),
-        PlatformProfile(name="一品威客", region="中国", url="https://www.epwk.com/service/", workModel="服务商店铺 / 众包接单", intakeMode="CSV、粘贴或浏览器只读采集", bestFor=["品牌素材", "文案", "设计", "营销内容"], suitability="优先", note="可建立标准化服务；适合清晰、可复用的交付包。"),
+        _platform("Upwork", "Global", "https://www.upwork.com/nx/search/jobs/", "Project bidding", "Official read-only API after your OAuth authorization; otherwise " + import_only, ["technical writing", "scripts", "small automation", "presentations"], "Priority", "Use only account-authorized official access. Proposals are always manually submitted.", workspace=Workspace.general),
+        _platform("Freelancer", "Global", "https://www.freelancer.com/jobs/", "Project bidding", "Official read-only API after your authorization; otherwise " + import_only, ["copy", "data cleanup", "small development", "design assets"], "Priority", "Good for clearly-scoped fixed-price work.", workspace=Workspace.general),
+        _platform("Fiverr", "Global", "https://www.fiverr.com/", "Packaged services and requests", import_only, ["standardized presentations", "video scripts", "copywriting", "image assets"], "Priority", "Package repeatable deliverables; no automated client messaging.", workspace=Workspace.general),
+        _platform("PeoplePerHour", "UK / Global", "https://www.peopleperhour.com/", "Project bidding and offers", import_only, ["copy", "design", "web fixes", "marketing assets"], "Observe", "Prefer complete source materials and a finite revision limit.", workspace=Workspace.general),
+        _platform("Workana", "Latin America / Global", "https://www.workana.com/jobs", "Project search and quotation", import_only, ["content", "design", "development"], "Observe", "Verify language and payout availability yourself.", workspace=Workspace.general),
+        _platform("猪八戒", "China", "https://www.zbj.com/", "Service store and requirements marketplace", import_only, ["copywriting", "design", "PPT", "website assets"], "Priority", "Follow on-platform communication and transaction rules.", workspace=Workspace.general),
+        _platform("一品威客", "China", "https://www.epwk.com/", "Service provider storefront and crowdsourcing", import_only, ["brand assets", "copywriting", "design", "marketing content"], "Priority", "Suitable for clear, reusable service packages.", workspace=Workspace.general),
+        _platform("程序员客栈", "China", "https://www.proginn.com/", "Developer project matching", import_only, ["small development", "documentation", "automation"], "Observe", "Screen scope carefully; do not accept production access through the tool.", workspace=Workspace.general),
+        _platform("码市", "China", "https://codemart.com/", "Software project marketplace", import_only, ["software prototypes", "automation", "technical documentation"], "Observe", "Only consider clearly bounded tasks without production deployment.", workspace=Workspace.general),
     ]
+
+
+def embedded_platform_catalog() -> list[PlatformProfile]:
+    """Embedded-specific opportunity sources, kept separate from general jobs.
+
+    Some entries are engineering communities/job boards rather than transaction
+    marketplaces.  They are labeled as discovery-only so users do not mistake a
+    forum post for a guaranteed contract channel.
+    """
+    capture = "CSV export, manual paste, or user-clicked read-only DOM capture"
+    embedded_access = "Read visible opportunities only. Never post, message, quote, flash hardware, or deploy without human confirmation."
+    return [
+        _platform("猪八戒·硬件开发", "China", "https://www.zbj.com/", "Hardware/firmware service requirements", capture, ["MCU firmware", "PCB review", "embedded Linux", "technical documentation"], "Priority", "Search with MCU, ESP32, STM32, RTOS, driver, and embedded Linux keywords.", workspace=Workspace.embedded, access=embedded_access),
+        _platform("一品威客·硬件开发", "China", "https://www.epwk.com/", "Hardware and engineering service requirements", capture, ["firmware prototypes", "BOM/documentation", "device integration"], "Priority", "Only recommend desk-only deliverables with source files and test fixtures.", workspace=Workspace.embedded, access=embedded_access),
+        _platform("程序员客栈·IoT", "China", "https://www.proginn.com/", "Developer project matching", capture, ["IoT backend", "ESP32", "embedded Linux", "device protocol"], "Observe", "Treat firmware tasks as candidates only until hardware access is clarified.", workspace=Workspace.embedded, access=embedded_access),
+        _platform("码市·物联网", "China", "https://codemart.com/", "Software project marketplace", capture, ["device protocol", "simulation", "tooling", "documentation"], "Observe", "Favor protocol simulators, tests, docs, and supplied-repo bug fixes.", workspace=Workspace.embedded, access=embedded_access),
+        _platform("电子发烧友·工程机会", "China", "https://www.elecfans.com/", "Engineering community / discovery", "Manual paste or user-clicked read-only DOM capture", ["electronics design", "firmware", "technical content"], "Discovery", "Community lead source, not a confirmed transaction marketplace; verify the counterparty and terms manually.", workspace=Workspace.embedded, access=embedded_access),
+        _platform("EEWorld·工程机会", "China", "https://www.eeworld.com.cn/", "Engineering community / discovery", "Manual paste or user-clicked read-only DOM capture", ["MCU", "RTOS", "embedded Linux", "driver"], "Discovery", "Use as a lead board only; avoid sharing private source code in public threads.", workspace=Workspace.embedded, access=embedded_access),
+        _platform("21IC·工程机会", "China", "https://www.21ic.com/", "Engineering community / discovery", "Manual paste or user-clicked read-only DOM capture", ["hardware", "firmware", "IoT"], "Discovery", "Use as a lead board only; platform rules and counterparty verification remain manual.", workspace=Workspace.embedded, access=embedded_access),
+        _platform("Upwork·Embedded Systems", "Global", "https://www.upwork.com/nx/search/jobs/", "Project bidding", "Official read-only API after your OAuth authorization; otherwise " + capture, ["C/C++", "Zephyr", "ESP-IDF", "embedded Linux"], "Priority", "Search only. A human must review every scope and submit any proposal.", workspace=Workspace.embedded, access=embedded_access),
+        _platform("Freelancer·Electronics", "Global", "https://www.freelancer.com/jobs/electronics/", "Project bidding", "Official read-only API after your authorization; otherwise " + capture, ["firmware", "Arduino", "PCB documentation", "IoT"], "Priority", "Use imported listings; no automatic quotation or message sending.", workspace=Workspace.embedded, access=embedded_access),
+        _platform("Guru·Engineering", "Global", "https://www.guru.com/d/jobs/", "Project marketplace", capture, ["firmware", "electronics", "IoT"], "Observe", "Choose work that can be verified in a simulator or supplied test fixture.", workspace=Workspace.embedded, access=embedded_access),
+        _platform("Toptal·Engineering", "Global", "https://www.toptal.com/freelance-jobs", "Curated talent network", "Manual paste of work you are authorized to view", ["senior embedded engineering", "IoT architecture"], "Discovery", "Not an automated source; membership and engagement suitability are platform-controlled.", workspace=Workspace.embedded, access=embedded_access),
+    ]
+
+
+def platform_catalog(workspace: Workspace | None = None) -> list[PlatformProfile]:
+    catalogs = {
+        Workspace.general: general_platform_catalog(),
+        Workspace.embedded: embedded_platform_catalog(),
+    }
+    if workspace:
+        return catalogs[workspace]
+    return [*catalogs[Workspace.general], *catalogs[Workspace.embedded]]

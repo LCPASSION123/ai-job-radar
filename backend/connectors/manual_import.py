@@ -9,7 +9,7 @@ from typing import Any
 from uuid import uuid4
 
 from backend.connectors.base import JobConnector
-from backend.models import ConnectorHealth, Job, SearchRequest
+from backend.models import ConnectorHealth, Job, SearchRequest, Workspace
 
 
 def _list_value(value: Any) -> list[str]:
@@ -71,6 +71,7 @@ class ManualImportConnector(JobConnector):
         budget_amount, currency = _budget_fields(raw)
         normalized = {
             "id": str(raw.get("id") or f"import-{uuid4().hex[:12]}"),
+            "workspace": raw.get("workspace") or ("embedded" if raw.get("embedded") else Workspace.general.value),
             "platform": str(raw.get("platform") or "Manual"),
             "title": str(raw.get("title") or "Untitled job"),
             "category": str(raw.get("category") or "other"),
@@ -86,6 +87,7 @@ class ManualImportConnector(JobConnector):
             "riskLevel": raw.get("riskLevel") or raw.get("risk_level") or 3,
             "estimatedMinutes": raw.get("estimatedMinutes") or raw.get("estimated_minutes") or 120,
             "aiAutonomy": raw.get("aiAutonomy") or raw.get("ai_autonomy") or 0.5,
+            "embedded": raw.get("embedded") or {},
             "source": str(raw.get("source") or "import"), "raw": raw,
         }
         return Job(**normalized)
@@ -99,9 +101,9 @@ class ManualImportConnector(JobConnector):
     def parse_csv(self, content: str) -> list[Job]:
         return [self.normalize_job(dict(row)) for row in csv.DictReader(io.StringIO(content))]
 
-    def parse_paste(self, platform: str, text: str) -> Job:
+    def parse_paste(self, platform: str, text: str, workspace: Workspace = Workspace.general) -> Job:
         lines = [line.strip() for line in text.splitlines() if line.strip()]
-        return self.normalize_job({"platform": platform, "title": lines[0][:200], "description": text, "source": "manual_paste"})
+        return self.normalize_job({"platform": platform, "title": lines[0][:200], "description": text, "source": "manual_paste", "workspace": workspace.value})
 
     async def search_jobs(self, request: SearchRequest) -> list[Job]:
         if not self.path or not self.path.exists(): return []

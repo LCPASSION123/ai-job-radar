@@ -6,6 +6,20 @@
 
 它不是自动接单机器人：不登录平台、不保存 Cookie/密码、不绕过验证码/反爬、不自动投标、发消息、签约、付款或交付。任何对外动作都必须由你在平台内复核并亲自确认。没有平台能保证“每天稳定 ¥50”；本工具只帮你缩短发现、评估和准备草稿的时间。
 
+## 新增：嵌入式接单雷达（独立工作区）
+
+前端顶部有两个完全分开的工作区：原有的“AI 接单雷达”和新增的“嵌入式接单雷达”。嵌入式工作区内置国内优先的机会目录（猪八戒·硬件开发、一品威客·硬件开发、程序员客栈·IoT、码市·物联网，以及电子发烧友、EEWorld、21IC 等工程线索来源）和海外目录（Upwork、Freelancer、Guru、Toptal）。工程社区被明确标记为“线索”，并不被表述为保证成交的平台。
+
+嵌入式候选必须同时满足：
+
+1. 已确认源码/仓库、目标与工具链，且能在桌面环境复现。
+2. 有 host test、模拟器、mock 或其他可离线验证条件。
+3. 没有真机调试、焊接、现场服务、物理交付、量产烧录、生产部署或安全关键验证。
+
+点击“桌面交付候选（无硬件）”后，系统只推荐满足上述条件的任务，并给出 Agent readiness、阻断项、建议交付包和真机验证清单。样例数据展示了可接的 ESP32 协议解析/单元测试、Zephyr 文档任务，以及会被拒绝的现场电机调试和 BMS 量产烧录任务。
+
+嵌入式任务的交付草稿会明确承诺边界：只能交付补丁、构建/测试记录和验证清单，不能声称已进行真机、生产或安全验证。
+
 ## 最快启动
 
 需要 Python 3.11+、Node.js 20+。
@@ -45,7 +59,7 @@ Manual,Turn notes into a 10-slide deck,Use supplied notes and brand template,100
 
 ## 平台与接入方式
 
-目录内置 Upwork、Freelancer、Fiverr、Contra、PeoplePerHour、Workana、猪八戒、一品威客。优先考虑标准化的 PPT、脚本、技术写作、信息整理、基于用户资料的轻量自动化等任务；排除虚假评价、代写、冒充、深度伪造、支付生产环境、赌博和成人内容。
+通用工作区目录内置 Upwork、Freelancer、Fiverr、PeoplePerHour、Workana、猪八戒、一品威客、程序员客栈、码市。嵌入式目录见上节。优先考虑标准化的 PPT、脚本、技术写作、信息整理、基于用户资料的轻量自动化等任务；排除虚假评价、代写、冒充、深度伪造、支付生产环境、赌博和成人内容。
 
 - Upwork / Freelancer：仅为官方 API 授权预留适配点；没有你的独立授权时使用导入或只读采集。
 - 其他平台：CSV、手动粘贴、或用户点击触发的只读 DOM Capture。
@@ -72,7 +86,7 @@ Manual,Turn notes into a 10-slide deck,Use supplied notes and brand template,100
 }
 ```
 
-可用工具：`list_platforms`、`search_jobs`、`recommend_ai_deliverable_jobs`、`get_job`、`generate_proposal`、`recent_audit_events`。都只读取/分析本地数据，绝不包含平台操作。详见 [docs/MCP.md](docs/MCP.md)。面向 GPT Actions 的静态 OpenAPI 文件在 [backend/openapi_action_schema.json](backend/openapi_action_schema.json)。
+可用工具：`list_platforms`、`search_jobs`、`recommend_ai_deliverable_jobs`、`search_embedded_jobs`、`recommend_embedded_desk_only_jobs`、`get_job`、`generate_proposal`、`recent_audit_events`。都只读取/分析本地数据，绝不包含平台操作或硬件操作。详见 [docs/MCP.md](docs/MCP.md)。面向 GPT Actions 的静态 OpenAPI 文件在 [backend/openapi_action_schema.json](backend/openapi_action_schema.json)。
 
 ## 测试与构建
 

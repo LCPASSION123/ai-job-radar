@@ -23,6 +23,15 @@
         "responses": {"200": {"description": "Human-reviewed candidates only", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/ScoredJob"}}}}}}
       }
     },
+    "/embedded/jobs/recommendations": {
+      "post": {
+        "operationId": "recommendEmbeddedDeskOnlyJobs",
+        "summary": "Find desk-only embedded candidates from local imported data",
+        "description": "Rejects work requiring physical hardware, on-device testing, production flashing/deployment, or safety-critical validation.",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/EmbeddedTargetProfile"}}}},
+        "responses": {"200": {"description": "Human-reviewed, desk-only embedded candidates", "content": {"application/json": {"schema": {"type": "array", "items": {"$ref": "#/components/schemas/ScoredJob"}}}}}}
+      }
+    },
     "/platforms": {
       "get": {
         "operationId": "listPlatforms",
@@ -63,8 +72,9 @@
   "components": {
     "parameters": {"JobId": {"name": "job_id", "in": "path", "required": true, "schema": {"type": "string"}}},
     "schemas": {
-      "SearchRequest": {"type": "object", "properties": {"platforms": {"type": "array", "items": {"type": "string"}}, "query": {"type": "string"}, "categories": {"type": "array", "items": {"type": "string"}}, "max_results": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}}},
+      "SearchRequest": {"type": "object", "properties": {"workspace": {"type": "string", "enum": ["general", "embedded"], "default": "general"}, "platforms": {"type": "array", "items": {"type": "string"}}, "query": {"type": "string"}, "categories": {"type": "array", "items": {"type": "string"}}, "max_results": {"type": "integer", "minimum": 1, "maximum": 200, "default": 50}}},
       "TargetProfile": {"type": "object", "properties": {"maxMinutes": {"type": "integer", "default": 120}, "minimumBudgetCny": {"type": "number", "default": 50}, "minimumAiAutonomy": {"type": "number", "default": 0.85}, "maximumManualWorkLevel": {"type": "integer", "default": 2}, "maximumRiskLevel": {"type": "integer", "default": 2}}},
+      "EmbeddedTargetProfile": {"allOf": [{"$ref": "#/components/schemas/TargetProfile"}, {"type": "object", "properties": {"workspace": {"type": "string", "enum": ["embedded"], "default": "embedded"}, "minimumAgentReadiness": {"type": "integer", "default": 80}, "allowSimulationOnly": {"type": "boolean", "default": true}}}]},
       "PlatformProfile": {"type": "object", "required": ["name", "region", "url", "workModel", "intakeMode", "bestFor", "suitability", "note"], "properties": {"name": {"type": "string"}, "region": {"type": "string"}, "url": {"type": "string", "format": "uri"}, "workModel": {"type": "string"}, "intakeMode": {"type": "string"}, "bestFor": {"type": "array", "items": {"type": "string"}}, "suitability": {"type": "string"}, "note": {"type": "string"}}},
       "ScoredJob": {"type": "object", "required": ["id", "platform", "title", "description", "score", "verdict", "reason"], "properties": {"id": {"type": "string"}, "platform": {"type": "string"}, "title": {"type": "string"}, "description": {"type": "string"}, "score": {"type": "integer", "minimum": 0, "maximum": 100}, "verdict": {"type": "string", "enum": ["recommend", "caution", "reject"]}, "reason": {"type": "string"}, "proposalDraft": {"type": "string", "description": "Draft only; user must manually review and submit."}, "deliveryPlan": {"type": "array", "items": {"type": "string"}}}}
     }
