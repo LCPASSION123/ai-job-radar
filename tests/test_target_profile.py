@@ -12,3 +12,9 @@ def test_target_profile_rejects_under_budget_or_high_touch_work():
     high_touch = too_cheap.model_copy(update={"id": "touch", "budgetAmount": 100, "manualWorkLevel": 4})
     assert not fits_target_profile(too_cheap, TargetProfile())
     assert not fits_target_profile(high_touch, TargetProfile())
+
+
+def test_target_profile_supports_week_and_unlimited_time_windows():
+    week_job = Job(id="week", platform="Manual", title="Bounded documentation", description="Document a supplied repository.", budgetAmount=100, currency="CNY", estimatedMinutes=9000, aiAutonomy=0.9, manualWorkLevel=1, riskLevel=1)
+    assert fits_target_profile(week_job, TargetProfile(maxMinutes=10080))
+    assert fits_target_profile(week_job, TargetProfile(maxMinutes=525600))

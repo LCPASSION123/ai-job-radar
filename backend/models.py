@@ -86,7 +86,7 @@ class SearchRequest(BaseModel):
 class TargetProfile(BaseModel):
     """A transparent filter for work that can be delivered with limited human input."""
 
-    maxMinutes: int = Field(default=120, ge=15, le=480)
+    maxMinutes: int = Field(default=120, ge=15, le=525_600)
     minimumBudgetCny: float = Field(default=50, ge=0)
     minimumAiAutonomy: float = Field(default=0.85, ge=0, le=1)
     maximumManualWorkLevel: int = Field(default=2, ge=1, le=5)

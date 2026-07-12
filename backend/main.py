@@ -114,7 +114,7 @@ async def recommendations(profile: TargetProfile) -> list[ScoredJob]:
     """Strict queue for small, low-risk, high-autonomy work candidates."""
     from backend.scoring import fits_target_profile
 
-    candidates = _scored(SearchRequest(max_results=200, workspace=profile.workspace))
+    candidates = _scored(SearchRequest(max_results=200, workspace=Workspace.general))
     result = [job for job in candidates if fits_target_profile(job, profile)]
     database.audit("target_recommendations", {"profile": profile.model_dump(), "results": len(result)})
     return result

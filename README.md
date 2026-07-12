@@ -46,9 +46,11 @@ npm.cmd run dev
 
 1. 在页面的“平台目录”打开目标平台并自行注册、登录和搜索。
 2. 将单条任务详情粘贴进“手动粘贴任务”，或导入 CSV/JSON；也可安装 [`browser_extension/`](browser_extension/README.md) 并在已经打开的任务页点击一次采集。
-3. 点击“AI 快速候选（¥50/2h）”，它会使用 `≤120 分钟、预算 ≥¥50、AI 自主度 ≥0.85、人工/风险等级 ≤2` 的严格条件筛选。
+3. 选择交付时间和条件后，点击“生成候选队列”。
 4. 查看评分、风险、交付计划和投标草稿。草稿只能人工审核、复制并手动提交。
 5. 导出 CSV/JSON/Markdown 日报，记录哪些类型的任务真正有回款后，再逐步调整门槛。
+
+现在页面还提供 `2 小时 / 12 小时 / 24 小时 / 一周 / 不限` 五档交付时间。默认是**宽松条件**（预算 ≥¥30、较高 AI 自主度、人工/风险等级 ≤3），以减少漏掉的小单；勾选“严格条件”即可回到原先的 `¥50 / 2 小时 / AI 自主度 0.85 / 人工与风险 ≤2` 筛选。嵌入式工作区无论选择哪种条件，仍会排除真机、现场、量产和安全关键工作。
 
 CSV 至少需要 `platform,title,description`。可选：`category,budget,budget_amount,currency,deliverables,constraints,estimated_minutes,ai_autonomy,manual_work_level,risk_level,client_reputation,deliverable_clarity,url`。列表可用 `|`、`;`、换行或 JSON 数组分隔。
 
