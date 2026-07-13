@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { publicDemo } from "./publicDemo";
 import "./styles.css";
 
 const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+const PUBLIC_DEMO_MODE = import.meta.env.VITE_PUBLIC_DEMO === "true";
 type Workspace = "general" | "embedded";
 type Verdict = "recommend" | "caution" | "reject";
 type Assessment = { target: string; scope: string; agentReadiness: number; blockers: string[]; recommendedArtifacts: string[]; sourceFilesProvided: boolean; toolchainKnown: boolean; testFixturesProvided: boolean };
@@ -49,6 +51,18 @@ function App() {
   const [paste, setPaste] = useState("");
 
   const load = async (nextWorkspace = workspace) => {
+    if (PUBLIC_DEMO_MODE) {
+      const source = publicDemo[nextWorkspace];
+      const tags = tagText.split(",").map(tag => tag.trim().toLowerCase()).filter(Boolean);
+      const result = (source.jobs as unknown as Job[]).filter(job => {
+        const text = `${job.title} ${job.description} ${job.category} ${job.platform}`.toLowerCase();
+        return (!query || text.includes(query.toLowerCase())) && (!platform || job.platform === platform) && (!category || job.category === category) && tags.every(tag => text.includes(tag));
+      });
+      setJobs(result); setSelected(result[0] || null); setPage(1); setPlatforms(source.platforms as unknown as Platform[]);
+      setConnectors((source.platforms as unknown as Platform[]).map(item => ({ platform: item.name, workspace: nextWorkspace, mode: "public_demo_read_only", ok: true, message: "公开体验版：仅展示示例数据，不访问账号或平台。", supportsCsv: false, supportsPaste: false, supportsDomCapture: false })));
+      setStatus(`公开体验版：已展示 ${result.length} 条示例任务。导入、账号连接和私有数据分析请使用本地版。`);
+      return;
+    }
     try {
       const params = new URLSearchParams({ workspace: nextWorkspace });
       const [result, sourceConnectors, sourcePlatforms] = await Promise.all([
@@ -67,6 +81,14 @@ function App() {
   };
 
   const loadTarget = async () => {
+    if (PUBLIC_DEMO_MODE) {
+      const maxMinutes = TIME_RANGES.find(item => item.value === timeRange)!.minutes;
+      const source = publicDemo[workspace];
+      const result = (source.jobs as unknown as Job[]).filter(job => job.verdict !== "reject" && job.estimatedMinutes <= maxMinutes && (!category || job.category === category));
+      setJobs(result); setSelected(result[0] || null); setPage(1);
+      setStatus(`公开体验版：${result.length} 条示例候选。真实任务导入和私有分析仅在本地版提供。`);
+      return;
+    }
     try {
       const endpoint = workspace === "embedded" ? "/embedded/jobs/recommendations" : "/jobs/recommendations";
       const maxMinutes = TIME_RANGES.find(item => item.value === timeRange)!.minutes;
@@ -82,11 +104,13 @@ function App() {
   };
 
   const importFile = async (file: File) => {
+    if (PUBLIC_DEMO_MODE) return setStatus("公开体验版为只读展示；请在本地版导入自己的 CSV/JSON。"), undefined;
     const data = new FormData(); data.append("file", file);
     await request(`/jobs/import/${file.name.toLowerCase().endsWith(".csv") ? "csv" : "json"}`, { method: "POST", body: data });
     await load();
   };
   const importPaste = async () => {
+    if (PUBLIC_DEMO_MODE) return setStatus("公开体验版为只读展示；请在本地版粘贴并分析任务。"), undefined;
     if (paste.trim().length < 10) return setStatus("请粘贴至少 10 个字符的任务详情。");
     await request("/jobs/paste", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workspace, platform: platform || (workspace === "embedded" ? "嵌入式手动粘贴" : "手动粘贴"), text: paste }) });
     setPaste(""); await load();
