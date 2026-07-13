@@ -13,6 +13,7 @@ data/*.db
 data/*.sqlite
 data/*.sqlite3
 .logs/
+.artifacts/
 
 # Frontend
 frontend/node_modules/
