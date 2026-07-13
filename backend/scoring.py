@@ -105,10 +105,10 @@ def score_job(job: Job) -> ScoredJob:
 
     if is_high_risk(job):
         score, verdict = min(25, breakdown.aiAutonomy), Verdict.reject
-        reason = "Rejected: the request contains a prohibited or high-risk pattern. Do not automate or accept it."
+        reason = "不建议接：任务包含禁止或高风险模式，不应自动化处理或接受。"
     elif assessment and (assessment.hardwareAccessRequired or assessment.physicalDeliveryRequired or assessment.onDeviceTestingRequired or assessment.productionFlashOrDeploy or assessment.safetyCritical):
         score, verdict = min(45, round((breakdown.aiAutonomy + assessment.agentReadiness) / 2)), Verdict.reject
-        reason = "Not recommended: this embedded scope needs physical hardware, device validation, production deployment, or safety-critical sign-off."
+        reason = "不建议接：该嵌入式任务需要真实硬件、真机验证、生产部署或安全关键签字确认。"
     else:
         score = round(
             breakdown.aiAutonomy * 0.26
@@ -125,13 +125,13 @@ def score_job(job: Job) -> ScoredJob:
         threshold = 78 if assessment else 75
         if score >= threshold and job.estimatedMinutes <= 120 and job.riskLevel <= 2 and job.manualWorkLevel <= 2 and (not assessment or assessment.agentReadiness >= 80):
             verdict = Verdict.recommend
-            reason = "Clear deliverables, high AI autonomy, and low operational risk make this a good candidate for a human-reviewed delivery."
+            reason = "交付物清晰、AI 自主度高且执行风险低，适合作为人工复核后的候选任务。"
         elif score >= 50 and job.riskLevel <= 3:
             verdict = Verdict.caution
-            reason = "Potentially suitable, but validate scope, source material, platform rules, and quality requirements before proceeding."
+            reason = "可以作为候选，但开始前应核实范围、源材料、平台规则和质量要求。"
         else:
             verdict = Verdict.reject
-            reason = "The time, manual effort, risk, or unclear scope does not fit a low-risk AI-assisted delivery."
+            reason = "时间、人工参与、风险或范围清晰度不符合低风险 AI 辅助交付条件。"
 
     return ScoredJob(
         **job.model_dump(), score=score, verdict=verdict, reason=reason,
@@ -165,7 +165,7 @@ def fits_embedded_target_profile(job: Job, profile: EmbeddedTargetProfile) -> bo
     return no_physical_work and assessment.agentReadiness >= profile.minimumAgentReadiness
 
 
-def build_proposal(job: Job, language: str = "auto") -> str:
+def build_proposal(job: Job, language: str = "zh") -> str:
     wants_zh = language == "zh" or (language == "auto" and bool(re.search(r"[\u4e00-\u9fff]", job.description)))
     deliverables = "\n".join(f"- {item}" for item in job.deliverables) or "- A scoped first draft\n- One light revision"
     if job.workspace == Workspace.embedded:
@@ -193,23 +193,23 @@ def build_delivery_plan(job: Job) -> list[str]:
     if job.workspace == Workspace.embedded:
         assessment = assess_embedded_job(job)
         return [
-            "Confirm target MCU/SoC, SDK version, toolchain, source access, and a reproducible local test command.",
-            "Reproduce the issue in a host-side test, simulator, mock transport, or provided fixture.",
-            "Implement a minimal patch with comments and a focused diff.",
-            "Run static checks plus the supplied host/simulation test and record commands/results.",
-            "Package patch, changelog, limitations, and a human target-hardware verification checklist.",
-            *( ["Stop before physical-hardware, production, or safety validation; these are explicitly outside agent delivery."] if assessment.blockers else [] ),
+            "确认目标 MCU/SoC、SDK 版本、工具链、源码访问方式和可复现的本地测试命令。",
+            "通过 host test、模拟器、mock 传输或已提供的测试夹具复现问题。",
+            "实现最小化补丁，并提供注释和聚焦的 diff。",
+            "运行静态检查和已提供的 host/仿真测试，记录命令与结果。",
+            "打包补丁、变更说明、已知限制和人工真机验证清单。",
+            *( ["在真实硬件、生产或安全验证前停止；这些明确不属于代理交付范围。"] if assessment.blockers else [] ),
         ]
     category_steps = {
-        "copywriting": ["Confirm audience, claims, and banned wording.", "Draft variations from supplied facts.", "Review for unsupported claims and tone."],
-        "ppt": ["Outline each slide from supplied notes.", "Apply a consistent layout and hierarchy.", "Export PPTX/PDF and visually review."],
-        "video_script": ["Create hook, scene, dialogue, and CTA options.", "Check claims and third-party material rights."],
-        "image": ["Confirm original/non-person subject and usage rights.", "Prepare prompts and generate options.", "Human-review images for likeness and IP issues."],
-        "technical_writing": ["Map supplied source material to a document outline.", "Draft examples without inventing API behavior.", "Validate terminology and examples."],
+        "copywriting": ["确认受众、可用主张和禁用表述。", "基于已提供事实起草多个版本。", "复核是否存在无依据主张以及语气问题。"],
+        "ppt": ["根据已有笔记整理每页结构。", "统一版式、层级和视觉重点。", "导出 PPTX/PDF 后进行人工视觉复核。"],
+        "video_script": ["准备开场钩子、场景、对白和 CTA 选项。", "核查宣传主张和第三方素材权利。"],
+        "image": ["确认主体为原创/非真人且具备使用权。", "准备提示词并生成备选方案。", "人工复核肖像与知识产权风险。"],
+        "technical_writing": ["把已有源材料映射为文档大纲。", "起草示例时不虚构 API 行为。", "校验术语和示例内容。"],
     }.get(job.category, [])
     return category_steps + [
-        "Confirm delivery format, revision limit, and deadline.",
-        "Create the first draft with GPT/Codex assistance.",
-        "Perform human fact, quality, copyright, and platform-rule review.",
-        "Package the requested files and a concise delivery note.",
+        "确认交付格式、修改次数上限和截止时间。",
+        "借助 GPT/Codex 生成第一版交付物。",
+        "人工复核事实、质量、版权和平台规则。",
+        "打包所需文件并附上简洁的交付说明。",
     ]

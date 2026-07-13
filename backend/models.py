@@ -171,7 +171,7 @@ class DomCaptureRequest(BaseModel):
 
 
 class ProposalRequest(BaseModel):
-    language: Literal["auto", "en", "zh"] = "auto"
+    language: Literal["auto", "en", "zh"] = "zh"
 
 
 class HighRiskConfirmation(BaseModel):

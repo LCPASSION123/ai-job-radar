@@ -68,8 +68,8 @@ def get_job(job_id: str) -> dict:
 
 
 @mcp.tool()
-def generate_proposal(job_id: str, language: str = "auto") -> dict:
-    """Generate a proposal draft for human review only; it never submits it to a platform."""
+def generate_proposal(job_id: str, language: str = "zh") -> dict:
+    """Generate a Chinese proposal draft by default for human review only; it never submits it to a platform."""
     return _call(f"/jobs/{job_id}/proposal", "POST", {"language": language})  # type: ignore[return-value]
 
 

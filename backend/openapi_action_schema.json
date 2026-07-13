@@ -52,7 +52,7 @@
         "operationId": "generateProposalDraft",
         "summary": "Generate a human-reviewed proposal draft only",
         "parameters": [{"$ref": "#/components/parameters/JobId"}],
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "properties": {"language": {"type": "string", "enum": ["auto", "en", "zh"]}}}}}},
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"type": "object", "properties": {"language": {"type": "string", "enum": ["auto", "en", "zh"], "default": "zh"}}}}}},
         "responses": {"200": {"description": "Draft, not submitted", "content": {"application/json": {"schema": {"type": "object"}}}}}
       }
     },

@@ -18,4 +18,9 @@ def test_prohibited_request_is_rejected_even_with_good_metrics():
     result = score_job(job(title="Write fake reviews", description="Need fake review manipulation"))
     assert result.verdict == Verdict.reject
     assert result.score <= 25
-    assert "Rejected" in result.reason
+    assert "不建议接" in result.reason
+
+
+def test_proposal_defaults_to_chinese_for_an_english_job():
+    result = score_job(job(title="Rewrite product copy", description="Rewrite supplied product copy without new claims."))
+    assert "您好" in result.proposalDraft
