@@ -13,6 +13,8 @@
 
 双击仓库根目录的 `Start-AI-Job-Radar.cmd`。它会自动启动 API 和网页、打开 `http://localhost:5173/`，且不受 PowerShell 执行策略影响。需要关闭时双击 `Stop-AI-Job-Radar.cmd`。
 
+如果不想每次手动启动，只需双击一次 `Install-AI-Job-Radar-AutoStart.cmd`。它会配置当前 Windows 用户登录后自动在后台启动本地服务；以后直接访问 `http://localhost:5173/` 即可。
+
 首次使用前只需安装一次依赖：
 
 ```powershell
