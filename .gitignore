@@ -18,6 +18,7 @@ data/*.sqlite3
 # Frontend
 frontend/node_modules/
 frontend/dist/
+frontend/dist-cn/
 frontend/*.tsbuildinfo
 
 # OS/editor noise

@@ -112,4 +112,8 @@ cd frontend
 npm.cmd run build
 ```
 
+## 中国大陆公开部署
+
+`chatgpt.site` 域名会被中国大陆网络的 Cloudflare 防护拦截，因此不应作为正式公开入口。项目已提供 `npm run build:china`，可生成不依赖国外接口的纯静态体验版，适合部署到腾讯云 EdgeOne Pages 或阿里云 OSS + CDN。具体配置见 [docs/DEPLOY_CN.md](docs/DEPLOY_CN.md)。
+
 测试覆盖评分、连接器契约、导入解析和严格候选筛选。`.env.example` 仅是空占位；默认 `LLM_PROVIDER=local`，无需任何真实 API Key。
